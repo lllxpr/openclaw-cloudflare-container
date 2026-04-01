@@ -75,12 +75,14 @@ GATEWAY_AUTH_TOKEN=your-secret-token
 AI_GATEWAY_ACCOUNT_ID=your-account-id
 AI_GATEWAY_ID=your-gateway-id
 AI_GATEWAY_AUTH_TOKEN=your-api-token
+TELEGRAM_BOT_TOKEN=123456789:ABCdefGhIJKlmNOPQRstUVwxYZ  # Optional
 ```
 
 - **`GATEWAY_AUTH_TOKEN`** — A secret string for authenticating with the OpenClaw Chat UI. Generate one with `openssl rand -hex 16`.
 - **`AI_GATEWAY_ACCOUNT_ID`** — Your Cloudflare Account ID. Find it at `dash.cloudflare.com` → any zone → Overview → right sidebar.
 - **`AI_GATEWAY_ID`** — Your AI Gateway name. Create one at `dash.cloudflare.com` → AI → AI Gateway.
 - **`AI_GATEWAY_AUTH_TOKEN`** — Cloudflare API token. Create at My Profile → API Tokens → Create Token (with AI Gateway permission).
+- **`TELEGRAM_BOT_TOKEN`** — *(Optional)* Telegram Bot token. See [Telegram Setup](#telegram-setup-optional) below.
 
 For production deployment, set them as secrets:
 
@@ -89,6 +91,7 @@ npx wrangler secret put GATEWAY_AUTH_TOKEN
 npx wrangler secret put AI_GATEWAY_ACCOUNT_ID
 npx wrangler secret put AI_GATEWAY_ID
 npx wrangler secret put AI_GATEWAY_AUTH_TOKEN
+npx wrangler secret put TELEGRAM_BOT_TOKEN  # Optional
 ```
 
 > **Note**: `WORKER_URL` is auto-detected from the first incoming request — no manual configuration needed.
@@ -123,6 +126,79 @@ First deploy will take a few minutes to pull the container image.
 4. Return to Chat UI — it should connect automatically
 
 The approval persists in R2, so you won't need to re-approve after container restarts.
+
+## Telegram Setup (Optional)
+
+OpenClaw supports Telegram as a chat channel. Users can message your bot directly and get AI-powered responses.
+
+### 1. Create a Telegram Bot
+
+1. Open Telegram and search for `@BotFather`
+2. Send `/newbot` and follow the prompts
+3. Copy the bot token (format: `123456789:ABCdefGhIJKlmNOPQRstUVwxYZ`)
+
+### 2. Configure the Bot Token
+
+**For local development:**
+
+Add to `.dev.vars`:
+```env
+TELEGRAM_BOT_TOKEN=123456789:ABCdefGhIJKlmNOPQRstUVwxYZ
+```
+
+**For production:**
+
+```bash
+echo "123456789:ABCdefGhIJKlmNOPQRstUVwxYZ" | npx wrangler secret put TELEGRAM_BOT_TOKEN
+```
+
+### 3. Deploy and Restart
+
+```bash
+npm run deploy
+```
+
+The container will automatically start Telegram long polling on startup.
+
+### 4. Pair Your Telegram Account
+
+1. **Send a message** to your bot on Telegram
+2. Bot will reply with a **pairing code** (e.g., `PTJG6J7R`)
+3. **Approve the pairing** in one of two ways:
+
+   **Option A: Admin CLI** (faster)
+   ```bash
+   # In Admin Dashboard → CLI tab
+   node dist/index.js pairing approve telegram <CODE> --notify
+   ```
+
+   **Option B: Admin Dashboard**
+   - Go to **Devices** tab
+   - Find the pending request
+   - Click **Approve**
+
+4. **Send another message** — Bot will now respond with AI-powered replies!
+
+### Telegram Features
+
+- **Direct messages**: Private 1-on-1 conversations with the bot
+- **Group chats**: Add the bot to groups (requires mention: `@yourbot hello`)
+- **Pairing security**: First-time users must be approved by the bot owner
+- **Persistent sessions**: Chat history survives container restarts (stored in R2)
+
+### Troubleshooting Telegram
+
+**Bot not responding?**
+- Check `node dist/index.js channels status` in Admin CLI
+- Should show: `Telegram default: enabled, configured, running, mode:polling`
+
+**Pairing code not working?**
+- List pending requests: `node dist/index.js pairing list`
+- The code expires after a few minutes — request a new one
+
+**Want to unpair a user?**
+- List paired devices: `node dist/index.js devices list`
+- Remove: `node dist/index.js devices remove <device-id>`
 
 ## Admin Dashboard
 
