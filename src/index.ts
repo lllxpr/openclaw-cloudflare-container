@@ -27,11 +27,15 @@ function buildEntrypoint(workerUrl: string, gatewayToken: string): string[] {
       "rm -f /tmp/snap_restore.b64",
       // 1. Onboard (initializes DB, keys, etc. - idempotent, safe with restored data)
       "node dist/index.js onboard --mode local --no-install-daemon 2>/dev/null || true",
-      // 2. Write config via heredoc (always overwrite with our config)
+      // 2. Write config ONLY if not restored from R2 (preserves channels, agents, etc.)
+      "if [ ! -f /home/node/.openclaw/openclaw.json ]; then",
       "cat > /home/node/.openclaw/openclaw.json << 'CFGEOF'",
       `{"gateway":{"mode":"local","bind":"lan","port":18789,"controlUi":{"enabled":true,"allowInsecureAuth":true,"allowedOrigins":["*"]},"auth":{"mode":"token","token":"${gatewayToken}"},"trustedProxies":["0.0.0.0/0"]}}`,
       "CFGEOF",
-      "echo 'Config written:' && cat /home/node/.openclaw/openclaw.json",
+      "echo 'Fresh config written'",
+      "else",
+      "echo 'Restored config preserved from R2'",
+      "fi",
       // 2b. Write auth-profiles for OpenAI-compatible provider (Workers AI via AI Gateway)
       "mkdir -p /home/node/.openclaw/agents/main/agent",
       "cat > /home/node/.openclaw/agents/main/agent/auth-profiles.json << 'AUTHEOF'",
@@ -41,7 +45,7 @@ function buildEntrypoint(workerUrl: string, gatewayToken: string): string[] {
       "cat > /tmp/mgmt.js << 'JSEOF'",
       "const http=require('http'),https=require('https'),fs=require('fs'),{execSync}=require('child_process'),os=require('os');",
       `const WORKER_URL='${workerUrl}';`,
-      "function saveSnapshot(){return new Promise((resolve,reject)=>{try{execSync('cd /home/node/.openclaw && tar czf /tmp/snap.tar.gz devices/ identity/ agents/',{timeout:10000});const data=fs.readFileSync('/tmp/snap.tar.gz').toString('base64');const u=new URL(WORKER_URL+'/persist/save');const r=https.request({hostname:u.hostname,path:u.pathname,method:'POST',headers:{'Content-Type':'text/plain','Content-Length':Buffer.byteLength(data)}},resp=>{let b='';resp.on('data',d=>b+=d);resp.on('end',()=>{console.log('R2 saved:',b.trim());resolve(b);});});r.on('error',e=>{console.error('R2 save net err:',e.message);reject(e);});r.write(data);r.end();}catch(e){console.error('R2 save failed:',e.message);reject(e);}});}",
+      "function saveSnapshot(){return new Promise((resolve,reject)=>{try{execSync('cd /home/node/.openclaw && tar czf /tmp/snap.tar.gz openclaw.json devices/ identity/ agents/',{timeout:10000});const data=fs.readFileSync('/tmp/snap.tar.gz').toString('base64');const u=new URL(WORKER_URL+'/persist/save');const r=https.request({hostname:u.hostname,path:u.pathname,method:'POST',headers:{'Content-Type':'text/plain','Content-Length':Buffer.byteLength(data)}},resp=>{let b='';resp.on('data',d=>b+=d);resp.on('end',()=>{console.log('R2 saved:',b.trim());resolve(b);});});r.on('error',e=>{console.error('R2 save net err:',e.message);reject(e);});r.write(data);r.end();}catch(e){console.error('R2 save failed:',e.message);reject(e);}});}",
       "// Devices cache: refresh in background every 30s instead of on every request",
       "let devicesCache='';let devicesCacheTime=0;",
       "function refreshDevices(){try{devicesCache=execSync('node dist/index.js devices list 2>&1',{encoding:'utf8',timeout:15000});devicesCacheTime=Date.now();}catch(e){console.error('devices refresh err:',e.message);}}",
