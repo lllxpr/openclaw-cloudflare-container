@@ -1,0 +1,35 @@
+{
+  "name": "openclaw-cloudflare",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "tail": "wrangler tail",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "^0.2.0"
+  },
+  "cloudflare": {
+    "bindings": {
+      "GATEWAY_AUTH_TOKEN": {
+        "description": "A secret token for the OpenClaw Chat UI. Generate one with `openssl rand -hex 16` or use any random string."
+      },
+      "AI_GATEWAY_ACCOUNT_ID": {
+        "description": "Your Cloudflare **Account ID**. Find it at [dash.cloudflare.com](https://dash.cloudflare.com) → any zone → Overview → right sidebar."
+      },
+      "AI_GATEWAY_ID": {
+        "description": "Your **AI Gateway** name. Create one at [dash.cloudflare.com](https://dash.cloudflare.com) → AI → AI Gateway."
+      },
+      "AI_GATEWAY_AUTH_TOKEN": {
+        "description": "Auth token for AI Gateway. Generate one at AI Gateway → Settings → API Auth Token."
+      }
+    }
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250327.0",
+    "typescript": "^5.8.2",
+    "wrangler": "^4.0.0"
+  }
+}
