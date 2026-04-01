@@ -178,6 +178,7 @@ tailwind.config = {
         <button onclick="quickCmd('ps aux --sort=-%mem | head -10')" class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-500 transition hover:border-cf-orange/30 hover:text-cf-orange">top processes</button>
         <button onclick="quickCmd('du -sh /home/node/.openclaw/*')" class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-500 transition hover:border-cf-orange/30 hover:text-cf-orange">disk usage</button>
         <button onclick="quickCmd('ls -la /home/node/.openclaw/')" class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-500 transition hover:border-cf-orange/30 hover:text-cf-orange">list files</button>
+        <button onclick="saveToR2()" class="rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-xs text-green-600 font-medium transition hover:border-green-400 hover:bg-green-100">Save to R2</button>
       </div>
     </div>
   </div>
@@ -360,12 +361,26 @@ async function runTermCmd() {
   historyIdx = -1;
   input.value = '';
   appendTerm('$ ' + cmd + '\\n', 'text-amber-400');
+  // Handle special commands that route to mgmt API
+  if (cmd === '/save' || cmd === 'save') { await saveToR2(); return; }
   try {
     const r = await fetch('/admin/api/run?cmd=' + encodeURIComponent(cmd));
     const text = await r.text();
     appendTerm(text + '\\n', r.ok ? 'text-gray-300' : 'text-red-400');
   } catch (e) {
     appendTerm('Error: ' + e.message + '\\n', 'text-red-400');
+  }
+}
+
+async function saveToR2() {
+  try {
+    appendTerm('Saving to R2...\\n', 'text-cyan-400');
+    const r = await fetch('/admin/api/save');
+    const text = await r.text();
+    appendTerm(text + '\\n', r.ok ? 'text-green-400' : 'text-red-400');
+    loadStats();
+  } catch (e) {
+    appendTerm('Save error: ' + e.message + '\\n', 'text-red-400');
   }
 }
 
