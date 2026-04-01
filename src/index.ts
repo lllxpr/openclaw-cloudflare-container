@@ -83,7 +83,7 @@ function buildEntrypoint(workerUrl: string, gatewayToken: string, telegramToken?
       "// Set default model",
       "if(!c.agents)c.agents={};",
       "if(!c.agents.defaults)c.agents.defaults={};",
-      "c.agents.defaults.model={primary:'workers-ai/cf/moonshotai/kimi-k2.5'};",
+      "c.agents.defaults.model={primary:'workers-ai/@cf/moonshotai/kimi-k2.5'};",
       "// Clean up any invalid model entries",
       "delete c.agents.defaults.models;",
       "// Define custom provider with baseUrl, apiKey, api type, and model catalog",
@@ -93,7 +93,7 @@ function buildEntrypoint(workerUrl: string, gatewayToken: string, telegramToken?
       `  baseUrl:'${workerUrl}/openai/v1',`,
       "  apiKey:'dummy',",
       "  api:'openai-completions',",
-      "  models:[{id:'cf/moonshotai/kimi-k2.5',name:'Kimi K2.5 (Workers AI)',reasoning:true,input:['text'],contextWindow:131072,maxTokens:8192}]",
+      "  models:[{id:'@cf/moonshotai/kimi-k2.5',name:'Kimi K2.5 (Workers AI)',reasoning:true,input:['text'],contextWindow:131072,maxTokens:8192}]",
       "};",
       "// Add Telegram channel if token is configured",
       `var tgToken='${telegramToken || ''}';`,
@@ -103,7 +103,10 @@ function buildEntrypoint(workerUrl: string, gatewayToken: string, telegramToken?
       "if(!c.approvals.exec)c.approvals.exec={};",
       "c.approvals.exec.fallback='allow';",
       "require('fs').writeFileSync(f,JSON.stringify(c,null,2));",
-      "console.log('Model config patched: workers-ai/cf/moonshotai/kimi-k2.5');",
+      "// Sync agent-level models.json to match global config",
+      "require('fs').mkdirSync('/home/node/.openclaw/agents/main/agent',{recursive:true});",
+      "require('fs').writeFileSync('/home/node/.openclaw/agents/main/agent/models.json',JSON.stringify(c.models,null,2));",
+      "console.log('Model config patched: workers-ai/@cf/moonshotai/kimi-k2.5');",
       "PATCHEOF",
       // 5. Start management server in background
       "node /tmp/mgmt.js &",
@@ -332,8 +335,6 @@ async function handleAIGatewayProxy(request: Request, env: Env, endpoint: string
         payload.model = "workers-ai/@cf/moonshotai/kimi-k2.5";
       } else if (payload.model.startsWith("@cf/")) {
         payload.model = "workers-ai/" + payload.model;
-      } else if (payload.model.startsWith("cf/")) {
-        payload.model = "workers-ai/@" + payload.model;
       }
       // Limit max_tokens to prevent extremely long reasoning chains that cause stuck responses
       if (!payload.max_tokens) {
