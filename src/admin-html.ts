@@ -189,7 +189,7 @@ tailwind.config = {
     <p class="text-xs text-gray-400">OpenClaw Admin &mdash; Powered by Cloudflare</p>
     <div class="flex gap-4">
       <a href="https://developers.cloudflare.com/containers/" target="_blank" class="text-xs text-gray-400 transition hover:text-cf-orange">Containers Docs</a>
-      <a href="https://github.com/lllxpr/openclaw-cloudflare" target="_blank" class="text-xs text-gray-400 transition hover:text-cf-orange">GitHub</a>
+      <a href="https://github.com/lllxpr/openclaw-cloudflare-container" target="_blank" class="text-xs text-gray-400 transition hover:text-cf-orange">GitHub</a>
     </div>
   </div>
 </footer>
