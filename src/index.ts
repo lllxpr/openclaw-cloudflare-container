@@ -9,9 +9,10 @@ export interface Env {
   AI_GATEWAY_ACCOUNT_ID?: string;
   AI_GATEWAY_ID?: string;
   AI_GATEWAY_AUTH_TOKEN?: string;
+  TELEGRAM_BOT_TOKEN?: string;
 }
 
-function buildEntrypoint(workerUrl: string, gatewayToken: string): string[] {
+function buildEntrypoint(workerUrl: string, gatewayToken: string, telegramToken?: string): string[] {
   return [
     "sh", "-c",
     [
@@ -96,6 +97,9 @@ function buildEntrypoint(workerUrl: string, gatewayToken: string): string[] {
       "  api:'openai-completions',",
       "  models:[{id:'@cf/moonshotai/kimi-k2.5',name:'Kimi K2.5 (Workers AI)',reasoning:true,input:['text'],contextWindow:131072,maxTokens:8192}]",
       "};",
+      "// Add Telegram channel if token is configured",
+      `var tgToken='${telegramToken || ''}';`,
+      "if(tgToken){if(!c.channels)c.channels={};c.channels.telegram={enabled:true,botToken:tgToken,dmPolicy:'pairing'};console.log('Telegram channel configured');}",
       "require('fs').writeFileSync(f,JSON.stringify(c,null,2));",
       "console.log('Model config patched: workers-ai/@cf/moonshotai/kimi-k2.5');",
       "PATCHEOF",
@@ -118,14 +122,16 @@ export class OpenClawContainer extends Container {
   defaultPort = 18789;
   sleepAfter = "10m";
   private gatewayToken: string;
+  private telegramToken?: string;
   private urlDetected = false;
 
   constructor(ctx: DurableObjectState<Env>, env: Env) {
     super(ctx, env);
     this.gatewayToken = env.GATEWAY_AUTH_TOKEN || "change-me";
+    this.telegramToken = env.TELEGRAM_BOT_TOKEN;
     // If WORKER_URL is explicitly set, use it; otherwise auto-detect on first fetch
     if (env.WORKER_URL && !env.WORKER_URL.includes("your-worker") && !env.WORKER_URL.includes("your-subdomain")) {
-      this.entrypoint = buildEntrypoint(env.WORKER_URL, this.gatewayToken);
+      this.entrypoint = buildEntrypoint(env.WORKER_URL, this.gatewayToken, this.telegramToken);
       this.urlDetected = true;
     }
   }
@@ -135,7 +141,7 @@ export class OpenClawContainer extends Container {
     if (!this.urlDetected) {
       const url = new URL(request.url);
       const workerUrl = `${url.protocol}//${url.hostname}`;
-      this.entrypoint = buildEntrypoint(workerUrl, this.gatewayToken);
+      this.entrypoint = buildEntrypoint(workerUrl, this.gatewayToken, this.telegramToken);
       this.urlDetected = true;
       console.log(`Auto-detected WORKER_URL: ${workerUrl}`);
     }

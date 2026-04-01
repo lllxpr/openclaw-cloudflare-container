@@ -24,6 +24,9 @@
       },
       "AI_GATEWAY_AUTH_TOKEN": {
         "description": "Auth token for AI Gateway. Generate one at AI Gateway → Settings → API Auth Token."
+      },
+      "TELEGRAM_BOT_TOKEN": {
+        "description": "(Optional) Telegram Bot token. Create a bot via @BotFather in Telegram to get one. Leave empty to skip Telegram."
       }
     }
   },
