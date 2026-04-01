@@ -107,7 +107,7 @@ name = "your-worker-name"
 npm run deploy
 ```
 
-First deploy will take a few minutes to pull the container image (~784 MB).
+First deploy will take a few minutes to pull the container image.
 
 ### 7. Access your deployment
 
