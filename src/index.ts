@@ -28,15 +28,13 @@ function buildEntrypoint(workerUrl: string, gatewayToken: string, telegramToken?
       "rm -f /tmp/snap_restore.b64",
       // 1. Onboard (initializes DB, keys, etc. - idempotent, safe with restored data)
       "node dist/index.js onboard --mode local --no-install-daemon 2>/dev/null || true",
-      // 2. Write config ONLY if not restored from R2 (preserves channels, agents, etc.)
-      "if [ ! -f /home/node/.openclaw/openclaw.json ]; then",
+      // 2. Always write config (gateway overwrites user changes, so R2 restore is unreliable for config)
       "cat > /home/node/.openclaw/openclaw.json << 'CFGEOF'",
-      `{"gateway":{"mode":"local","bind":"lan","port":18789,"controlUi":{"enabled":true,"allowInsecureAuth":true,"allowedOrigins":["*"]},"auth":{"mode":"token","token":"${gatewayToken}"},"trustedProxies":["0.0.0.0/0"]}}`,
+      telegramToken
+        ? `{"gateway":{"mode":"local","bind":"lan","port":18789,"controlUi":{"enabled":true,"allowInsecureAuth":true,"allowedOrigins":["*"]},"auth":{"mode":"token","token":"${gatewayToken}"},"trustedProxies":["0.0.0.0/0"]},"channels":{"telegram":{"enabled":true,"botToken":"${telegramToken}","dmPolicy":"pairing"}}}`
+        : `{"gateway":{"mode":"local","bind":"lan","port":18789,"controlUi":{"enabled":true,"allowInsecureAuth":true,"allowedOrigins":["*"]},"auth":{"mode":"token","token":"${gatewayToken}"},"trustedProxies":["0.0.0.0/0"]}}`,
       "CFGEOF",
-      "echo 'Fresh config written'",
-      "else",
-      "echo 'Restored config preserved from R2'",
-      "fi",
+      "echo 'Config written'",
       // 2b. Write auth-profiles for OpenAI-compatible provider (Workers AI via AI Gateway)
       "mkdir -p /home/node/.openclaw/agents/main/agent",
       "cat > /home/node/.openclaw/agents/main/agent/auth-profiles.json << 'AUTHEOF'",
