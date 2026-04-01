@@ -8,7 +8,7 @@ enabled = true
 
 [[containers]]
 class_name = "OpenClawContainer"
-image = "docker.io/alpine/openclaw:latest"
+image = "docker.io/alpine/openclaw:main"
 instance_type = "standard-2"
 max_instances = 1
 

@@ -114,7 +114,7 @@ tailwind.config = {
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
         <div class="flex items-center gap-3 rounded-xl bg-gray-50 p-3">
           <span class="text-gray-400 w-28 shrink-0">Image</span>
-          <span class="font-mono text-xs text-cf-dark">docker.io/alpine/openclaw:latest</span>
+          <span class="font-mono text-xs text-cf-dark">docker.io/alpine/openclaw:main</span>
         </div>
         <div class="flex items-center gap-3 rounded-xl bg-gray-50 p-3">
           <span class="text-gray-400 w-28 shrink-0">Instance</span>
