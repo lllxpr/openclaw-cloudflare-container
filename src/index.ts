@@ -106,6 +106,9 @@ function buildEntrypoint(workerUrl: string, gatewayToken: string, telegramToken?
       "// Sync agent-level models.json to match global config",
       "require('fs').mkdirSync('/home/node/.openclaw/agents/main/agent',{recursive:true});",
       "require('fs').writeFileSync('/home/node/.openclaw/agents/main/agent/models.json',JSON.stringify(c.models,null,2));",
+      "// Clear stale providerOverride/modelOverride from sessions (can break model lookup after R2 restore)",
+      "var sf='/home/node/.openclaw/agents/main/sessions/sessions.json';",
+      "if(require('fs').existsSync(sf)){var s=JSON.parse(require('fs').readFileSync(sf,'utf8'));var changed=0;for(var k in s){if(s[k].providerOverride||s[k].modelOverride){delete s[k].providerOverride;delete s[k].modelOverride;changed++;}}if(changed){require('fs').writeFileSync(sf,JSON.stringify(s,null,2));console.log('Cleared model overrides from '+changed+' session(s).');}}",
       "console.log('Model config patched: workers-ai/@cf/moonshotai/kimi-k2.5');",
       "PATCHEOF",
       // 5. Start management server in background
