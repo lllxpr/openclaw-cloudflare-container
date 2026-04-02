@@ -181,6 +181,9 @@ function json(data: unknown, status = 200) {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    const id = env.OPENCLAW_CONTAINER.idFromName("main");
+    const stub = env.OPENCLAW_CONTAINER.get(id) as DurableObjectStub<OpenClawContainer>;
+
     const url = new URL(request.url);
     const path = url.pathname;
 
