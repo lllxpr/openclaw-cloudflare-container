@@ -31,7 +31,7 @@ function buildEntrypoint(workerUrl: string, gatewayToken: string, telegramToken?
       // 2. Always write config (gateway overwrites user changes, so R2 restore is unreliable for config)
       "cat > /home/node/.openclaw/openclaw.json << 'CFGEOF'",
       telegramToken
-        ? `{"gateway":{"mode":"local","bind":"lan","port":18789,"controlUi":{"enabled":true,"allowInsecureAuth":true,"allowedOrigins":["*"]},"auth":{"mode":"token","token":"${gatewayToken}"},"trustedProxies":["0.0.0.0/0"]},"channels":{"telegram":{"enabled":true,"botToken":"${telegramToken}","dmPolicy":"pairing"}}}`
+        ? `{"gateway":{"mode":"local","bind":"lan","port":18789,"controlUi":{"enabled":true,"allowInsecureAuth":true,"allowedOrigins":["*"]},"auth":{"mode":"token","token":"${gatewayToken}"},"trustedProxies":["0.0.0.0/0"]},"channels":{"telegram":{"enabled":true,"botToken":"${telegramToken}","dmPolicy":"allow"}}}`
         : `{"gateway":{"mode":"local","bind":"lan","port":18789,"controlUi":{"enabled":true,"allowInsecureAuth":true,"allowedOrigins":["*"]},"auth":{"mode":"token","token":"${gatewayToken}"},"trustedProxies":["0.0.0.0/0"]}}`,
       "CFGEOF",
       "echo 'Config written'",
@@ -97,7 +97,7 @@ function buildEntrypoint(workerUrl: string, gatewayToken: string, telegramToken?
       "};",
       "// Add Telegram channel if token is configured",
       `var tgToken='${telegramToken || ''}';`,
-      "if(tgToken){if(!c.channels)c.channels={};c.channels.telegram={enabled:true,botToken:tgToken,dmPolicy:'pairing'};console.log('Telegram channel configured');}",
+      "if(tgToken){if(!c.channels)c.channels={};c.channels.telegram={enabled:true,botToken:tgToken,dmPolicy:'allow'};console.log('Telegram channel configured');}",
       "require('fs').writeFileSync(f,JSON.stringify(c,null,2));",
       "// Write exec-approvals.json: allow all commands for all agents (wildcard)",
       "var ea={version:1,socket:{},defaults:{},agents:{'*':{allowlist:[{pattern:'*',lastUsedAt:Date.now()},{pattern:'**',lastUsedAt:Date.now()}]}}};require('fs').writeFileSync('/home/node/.openclaw/exec-approvals.json',JSON.stringify(ea,null,2));console.log('exec-approvals: wildcard allow set (* and **)');",
