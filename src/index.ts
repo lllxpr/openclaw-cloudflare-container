@@ -100,7 +100,7 @@ function buildEntrypoint(workerUrl: string, gatewayToken: string, telegramToken?
       "if(tgToken){if(!c.channels)c.channels={};c.channels.telegram={enabled:true,botToken:tgToken,dmPolicy:'pairing'};console.log('Telegram channel configured');}",
       "require('fs').writeFileSync(f,JSON.stringify(c,null,2));",
       "// Write exec-approvals.json: allow all commands for all agents (wildcard)",
-      "var ea={version:1,socket:{},defaults:{},agents:{'*':{allowlist:[{pattern:'*',lastUsedAt:Date.now()}]}}};require('fs').writeFileSync('/home/node/.openclaw/exec-approvals.json',JSON.stringify(ea,null,2));console.log('exec-approvals: wildcard allow set');",
+      "var ea={version:1,socket:{},defaults:{},agents:{'*':{allowlist:[{pattern:'*',lastUsedAt:Date.now()},{pattern:'**',lastUsedAt:Date.now()}]}}};require('fs').writeFileSync('/home/node/.openclaw/exec-approvals.json',JSON.stringify(ea,null,2));console.log('exec-approvals: wildcard allow set (* and **)');",
       "// Sync agent-level models.json to match global config",
       "require('fs').mkdirSync('/home/node/.openclaw/agents/main/agent',{recursive:true});",
       "require('fs').writeFileSync('/home/node/.openclaw/agents/main/agent/models.json',JSON.stringify(c.models,null,2));",
@@ -341,6 +341,29 @@ async function handleAIGatewayProxy(request: Request, env: Env, endpoint: string
       if (!payload.max_tokens) {
         payload.max_tokens = 4096;
       }
+      // Kimi K2.5 reasoning model requires explicit tool_choice to reliably call tools in streaming mode
+      if (payload.tools?.length > 0 && payload.tool_choice === undefined) {
+        payload.tool_choice = "auto";
+      }
+      // Normalize tool result messages: OpenAI spec requires role:"tool" after assistant tool_calls.
+      // If OpenClaw sends role:"user" at that position, convert to role:"tool" with proper tool_call_id.
+      {
+        const ms: Array<{role: string; content?: unknown; tool_calls?: Array<{id: string}>; tool_call_id?: string}> = payload.messages ?? [];
+        for (let i = 1; i < ms.length; i++) {
+          const prev = ms[i - 1];
+          const curr = ms[i];
+          if (prev.role === "assistant" && Array.isArray(prev.tool_calls) && prev.tool_calls.length > 0 && curr.role === "user") {
+            curr.role = "tool";
+            if (!curr.tool_call_id) curr.tool_call_id = prev.tool_calls[0].id;
+            if (Array.isArray(curr.content)) {
+              curr.content = (curr.content as Array<{type: string; text?: string; content?: string}>)
+                .map(c => (typeof c === "string" ? c : (c.text ?? c.content ?? JSON.stringify(c))))
+                .join("\n");
+            }
+          }
+        }
+      }
+    
     }
     const headers = new Headers();
     headers.set("cf-aig-authorization", `Bearer ${authToken}`);
