@@ -26,14 +26,18 @@ function buildEntrypoint(workerUrl: string, gatewayToken: string, telegramToken?
       "  echo 'No R2 snapshot found or empty, will onboard fresh'",
       "fi",
       "rm -f /tmp/snap_restore.b64",
-      // 1. Onboard (initializes DB, keys, etc. - idempotent, safe with restored data)
+      // 1. Save Telegram config from R2-restored openclaw.json BEFORE onboard overwrites it
+      "if [ -f /home/node/.openclaw/openclaw.json ]; then node -e \"try{var c=JSON.parse(require('fs').readFileSync('/home/node/.openclaw/openclaw.json','utf8'));if(c.channels&&c.channels.telegram){require('fs').writeFileSync('/tmp/tg_config.json',JSON.stringify(c.channels.telegram));console.log('Saved Telegram config from R2');}}catch(e){}\" || true; fi",
+      // 2. Onboard (initializes DB, keys, etc. - idempotent, safe with restored data)
       "node dist/index.js onboard --mode local --no-install-daemon 2>/dev/null || true",
-      // 2. Always write config (gateway overwrites user changes, so R2 restore is unreliable for config)
+      // 2b. Write base config (gateway overwrites user changes, so R2 restore is unreliable for config)
       "cat > /home/node/.openclaw/openclaw.json << 'CFGEOF'",
-      telegramToken
-        ? `{"gateway":{"mode":"local","bind":"lan","port":18789,"controlUi":{"enabled":true,"allowInsecureAuth":true,"allowedOrigins":["*"]},"auth":{"mode":"token","token":"${gatewayToken}"},"trustedProxies":["0.0.0.0/0"]},"channels":{"telegram":{"enabled":true,"botToken":"${telegramToken}","dmPolicy":"allow"}}}`
-        : `{"gateway":{"mode":"local","bind":"lan","port":18789,"controlUi":{"enabled":true,"allowInsecureAuth":true,"allowedOrigins":["*"]},"auth":{"mode":"token","token":"${gatewayToken}"},"trustedProxies":["0.0.0.0/0"]}}`,
+      `{"gateway":{"mode":"local","bind":"lan","port":18789,"controlUi":{"enabled":true,"allowInsecureAuth":true,"allowedOrigins":["*"]},"auth":{"mode":"token","token":"${gatewayToken}"},"trustedProxies":["0.0.0.0/0"]}}`,
       "CFGEOF",
+      // 2c. Merge Telegram config back if it was saved (and no env token provided)
+      telegramToken
+        ? `node -e "var c=JSON.parse(require('fs').readFileSync('/home/node/.openclaw/openclaw.json','utf8'));c.channels={telegram:{enabled:true,botToken:'${telegramToken}',dmPolicy:'allow'}};require('fs').writeFileSync('/home/node/.openclaw/openclaw.json',JSON.stringify(c,null,2));console.log('Telegram configured from env');"`
+        : "if [ -f /tmp/tg_config.json ]; then node -e \"var c=JSON.parse(require('fs').readFileSync('/home/node/.openclaw/openclaw.json','utf8'));var tg=JSON.parse(require('fs').readFileSync('/tmp/tg_config.json','utf8'));c.channels={telegram:tg};require('fs').writeFileSync('/home/node/.openclaw/openclaw.json',JSON.stringify(c,null,2));console.log('Telegram restored from R2');\"; fi",
       "echo 'Config written'",
       // 2b. Write auth-profiles for OpenAI-compatible provider (Workers AI via AI Gateway)
       "mkdir -p /home/node/.openclaw/agents/main/agent",
@@ -44,7 +48,7 @@ function buildEntrypoint(workerUrl: string, gatewayToken: string, telegramToken?
       "cat > /tmp/mgmt.js << 'JSEOF'",
       "const http=require('http'),https=require('https'),fs=require('fs'),{execSync}=require('child_process'),os=require('os');",
       `const WORKER_URL='${workerUrl}';`,
-      "function saveSnapshot(){return new Promise((resolve,reject)=>{try{execSync('cd /home/node/.openclaw && tar czf /tmp/snap.tar.gz openclaw.json devices/ identity/ agents/',{timeout:10000});const data=fs.readFileSync('/tmp/snap.tar.gz').toString('base64');const u=new URL(WORKER_URL+'/persist/save');const r=https.request({hostname:u.hostname,path:u.pathname,method:'POST',headers:{'Content-Type':'text/plain','Content-Length':Buffer.byteLength(data)}},resp=>{let b='';resp.on('data',d=>b+=d);resp.on('end',()=>{console.log('R2 saved:',b.trim());resolve(b);});});r.on('error',e=>{console.error('R2 save net err:',e.message);reject(e);});r.write(data);r.end();}catch(e){console.error('R2 save failed:',e.message);reject(e);}});}",
+      "function saveSnapshot(){return new Promise((resolve,reject)=>{try{execSync('cd /home/node/.openclaw && tar czf /tmp/snap.tar.gz openclaw.json devices/ identity/ agents/ workspace/ 2>/dev/null || tar czf /tmp/snap.tar.gz openclaw.json devices/ identity/ agents/',{timeout:10000});const data=fs.readFileSync('/tmp/snap.tar.gz').toString('base64');const u=new URL(WORKER_URL+'/persist/save');const r=https.request({hostname:u.hostname,path:u.pathname,method:'POST',headers:{'Content-Type':'text/plain','Content-Length':Buffer.byteLength(data)}},resp=>{let b='';resp.on('data',d=>b+=d);resp.on('end',()=>{console.log('R2 saved:',b.trim());resolve(b);});});r.on('error',e=>{console.error('R2 save net err:',e.message);reject(e);});r.write(data);r.end();}catch(e){console.error('R2 save failed:',e.message);reject(e);}});}",
       "// Devices cache: refresh in background every 30s instead of on every request",
       "let devicesCache='';let devicesCacheTime=0;",
       "function refreshDevices(){try{devicesCache=execSync('node dist/index.js devices list 2>&1',{encoding:'utf8',timeout:15000});devicesCacheTime=Date.now();}catch(e){console.error('devices refresh err:',e.message);}}",
@@ -95,9 +99,10 @@ function buildEntrypoint(workerUrl: string, gatewayToken: string, telegramToken?
       "  api:'openai-completions',",
       "  models:[{id:'@cf/moonshotai/kimi-k2.5',name:'Kimi K2.5 (Workers AI)',reasoning:true,input:['text'],contextWindow:131072,maxTokens:8192}]",
       "};",
-      "// Add Telegram channel if token is configured",
+      "// Add Telegram channel if token is configured (from env or preserved from R2 snapshot)",
       `var tgToken='${telegramToken || ''}';`,
-      "if(tgToken){if(!c.channels)c.channels={};c.channels.telegram={enabled:true,botToken:tgToken,dmPolicy:'allow'};console.log('Telegram channel configured');}",
+      "if(tgToken){if(!c.channels)c.channels={};c.channels.telegram={enabled:true,botToken:tgToken,dmPolicy:'allow'};console.log('Telegram channel configured from env');}",
+      "else{try{var origC=JSON.parse(require('fs').readFileSync(f,'utf8'));if(origC.channels&&origC.channels.telegram&&origC.channels.telegram.botToken){if(!c.channels)c.channels={};c.channels.telegram=origC.channels.telegram;console.log('Telegram channel preserved from R2 snapshot');}}catch(e){}}",
       "require('fs').writeFileSync(f,JSON.stringify(c,null,2));",
       "// Write exec-approvals.json: allow all commands for all agents (wildcard)",
       "var ea={version:1,socket:{},defaults:{},agents:{'*':{allowlist:[{pattern:'*',lastUsedAt:Date.now()},{pattern:'**',lastUsedAt:Date.now()}]}}};require('fs').writeFileSync('/home/node/.openclaw/exec-approvals.json',JSON.stringify(ea,null,2));console.log('exec-approvals: wildcard allow set (* and **)');",
