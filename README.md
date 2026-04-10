@@ -81,7 +81,11 @@ TELEGRAM_BOT_TOKEN=123456789:ABCdefGhIJKlmNOPQRstUVwxYZ  # Optional
 - **`GATEWAY_AUTH_TOKEN`** — A secret string for authenticating with the OpenClaw Chat UI. Generate one with `openssl rand -hex 16`.
 - **`AI_GATEWAY_ACCOUNT_ID`** — Your Cloudflare Account ID. Find it at `dash.cloudflare.com` → any zone → Overview → right sidebar.
 - **`AI_GATEWAY_ID`** — Your AI Gateway name. Create one at `dash.cloudflare.com` → AI → AI Gateway.
-- **`AI_GATEWAY_AUTH_TOKEN`** — Cloudflare API token. Create at My Profile → API Tokens → Create Token (with AI Gateway permission).
+- **`AI_GATEWAY_AUTH_TOKEN`** — AI Gateway authentication token. To create one:
+  1. Go to `dash.cloudflare.com` → AI → AI Gateway → Select your gateway → **Settings**
+  2. Enable **Authenticated Gateway** (toggle on)
+  3. Click **Create authentication token**
+  4. Copy the generated token (format: `cfut_...`)
 - **`TELEGRAM_BOT_TOKEN`** — *(Optional)* Telegram Bot token. See [Telegram Setup](#telegram-setup-optional) below.
 
 For production deployment, set them as secrets:
